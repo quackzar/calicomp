@@ -4,19 +4,27 @@ pub mod ui;
 
 use std::io;
 
+use better_panic::Settings;
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use eyre::Result;
-use human_panic::setup_panic;
 use ratatui::{prelude::CrosstermBackend, Terminal};
 
 use crate::app::{events::run_app, App};
 
-fn main() -> Result<()> {
-    setup_panic!();
+
+pub fn initialize_panic_handler() {
+  std::panic::set_hook(Box::new(|panic_info| {
+    crossterm::execute!(std::io::stderr(), crossterm::terminal::LeaveAlternateScreen).unwrap();
+    crossterm::terminal::disable_raw_mode().unwrap();
+    Settings::auto().most_recent_first(false).lineno_suffix(true).create_panic_handler()(panic_info);
+  }));
+}
+
+fn init() -> Result<()> {
     color_eyre::install()?;
     enable_raw_mode()?;
     // This is a special case. Normally using stdout is fine
@@ -25,6 +33,8 @@ fn main() -> Result<()> {
 
     let backend = CrosstermBackend::new(stderr);
     let mut terminal = Terminal::new(backend)?;
+
+    initialize_panic_handler();
 
     // create app and run it
     let mut app = App::new();
@@ -46,4 +56,10 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+
+fn main() -> Result<()> {
+    // TODO setup clap
+    init()
 }

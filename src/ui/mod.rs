@@ -1,16 +1,17 @@
 pub mod card;
 pub mod glassware;
+pub mod image;
 
 use std::iter;
 
 use ratatui::{
     prelude::*,
-    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
+    widgets::{Block, Borders, Clear, List, Paragraph, Wrap},
 };
 
 use crate::{
     app::{App, CurrentScreen, CurrentlyEditing},
-    sys::{self, glass},
+    sys::{self, glass::{self, Glassware}},
     ui::card::RecipeCard,
 };
 
@@ -60,29 +61,17 @@ pub fn ui(frame: &mut Frame, app: &App) {
 
     frame.render_widget(title, chunks[0]);
 
-    let list = List::from_iter(iter::from_fn(|| Some("Another Cocktail")).take(20));
+    let list = List::from_iter(iter::from_fn(|| Some("Another Cocktail")).take(20))
+        .highlight_symbol(">>")
+        .highlight_style(Style::new().yellow());
 
     let [left, right] = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Ratio(1, 2); 2])
         .areas(chunks[1]);
 
-    let glass = glassware::Glass::new();
-
     frame.render_widget(list, left);
-
-    let [left, right] = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Ratio(1, 2); 2])
-        .areas(right);
-
-    let daiquiri = sys::db::new_daiq();
-    let card = RecipeCard {
-        recipe: Some(&daiquiri),
-    };
-
-    frame.render_widget(&card, left);
-    frame.render_widget(glass, right);
+    recipe_window(frame, right);
 
     let current_navigation_text = vec![
         // The first half of the text
@@ -145,7 +134,7 @@ pub fn ui(frame: &mut Frame, app: &App) {
     frame.render_widget(key_notes_footer, footer_chunks[1]);
 
     if let Some(editing) = &app.currently_editing {
-        ui_edit(frame, editing, app);
+        edit_window(frame, editing, app);
     }
 
     if let CurrentScreen::Exiting = app.current_screen {
@@ -153,7 +142,27 @@ pub fn ui(frame: &mut Frame, app: &App) {
     }
 }
 
-fn ui_edit(frame: &mut Frame<'_>, editing: &CurrentlyEditing, app: &App) {
+fn recipe_window(frame: &mut Frame<'_>, right: Rect) {
+    let daiquiri = sys::db::new_daiq();
+    let glass = glassware::Glass::from(daiquiri.glassware.unwrap_or(Glassware::Highball));
+
+
+    let [left, right] = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Ratio(1, 2); 2])
+        .areas(right);
+
+    let card = RecipeCard {
+        recipe: Some(&daiquiri),
+    };
+
+    frame.render_widget(&card, left);
+
+    frame.render_widget(glass, right);
+    //image::image(frame, right).unwrap();
+}
+
+fn edit_window(frame: &mut Frame<'_>, editing: &CurrentlyEditing, app: &App) {
     let popup_block = Block::default()
         .title("Enter a new key-value pair")
         .borders(Borders::NONE)

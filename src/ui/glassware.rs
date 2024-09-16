@@ -14,6 +14,15 @@ pub struct Glass {
     pub filled: bool,
 }
 
+impl From<Glassware> for Glass {
+    fn from(value: Glassware) -> Self {
+        Glass {
+            kind: value,
+            filled: false,
+        }
+    }
+}
+
 impl Glass {
     pub fn new() -> Self {
         Glass {
@@ -34,15 +43,25 @@ impl Widget for Glass {
     where
         Self: Sized,
     {
-        let martini = Martini::new();
         //let tumbler = Tumbler { width: 80.0, height: 40.0 };
 
         canvas::Canvas::default()
             .x_bounds([-80.0, 80.0])
             .y_bounds([-80.0, 80.0])
             .paint(|ctx| {
-                martini.draw(ctx, Color::White);
-                //tumbler.draw(ctx, Color::White);
+                match self.kind {
+                    Glassware::Martini => {
+                        let martini = Martini::new();
+                        martini.draw(ctx, Color::White);
+                    },
+                    Glassware::Lowball => {
+                        let tumbler = Martini::new();
+                        tumbler.draw(ctx, Color::White);
+                    },
+                    _ => {
+                        ctx.print(0., 0., "Unknown");
+                    }
+                }
             })
             .render(area, buf)
     }
