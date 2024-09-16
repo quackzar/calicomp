@@ -8,10 +8,11 @@ use ratatui::{
     prelude::*,
     widgets::{Block, Borders, Clear, List, Paragraph, Wrap},
 };
+use tui_textarea::TextArea;
 
 use crate::{
     app::{App, CurrentScreen, CurrentlyEditing},
-    sys::{self, glass::{self, Glassware}},
+    sys::{self, glass::Glassware},
     ui::card::RecipeCard,
 };
 
@@ -89,12 +90,17 @@ pub fn ui(frame: &mut Frame, app: &App) {
         {
             if let Some(editing) = &app.currently_editing {
                 match editing {
-                    CurrentlyEditing::Key => {
-                        Span::styled("Editing Json Key", Style::default().fg(Color::Green))
+                    CurrentlyEditing::Name => {
+                        Span::styled("Editing Recipe Name", Style::default().fg(Color::Green))
                     }
-                    CurrentlyEditing::Value => {
-                        Span::styled("Editing Json Value", Style::default().fg(Color::LightGreen))
-                    }
+                    CurrentlyEditing::Description => Span::styled(
+                        "Editing Recipe Description",
+                        Style::default().fg(Color::LightGreen),
+                    ),
+                    _ => Span::styled(
+                        "Editing something else?",
+                        Style::default().fg(Color::LightBlue),
+                    ),
                 }
             } else {
                 Span::styled("Not Editing Anything", Style::default().fg(Color::DarkGray))
@@ -146,7 +152,6 @@ fn recipe_window(frame: &mut Frame<'_>, right: Rect) {
     let daiquiri = sys::db::new_daiq();
     let glass = glassware::Glass::from(daiquiri.glassware.unwrap_or(Glassware::Highball));
 
-
     let [left, right] = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Ratio(1, 2); 2])
@@ -158,8 +163,8 @@ fn recipe_window(frame: &mut Frame<'_>, right: Rect) {
 
     frame.render_widget(&card, left);
 
-    frame.render_widget(glass, right);
-    //image::image(frame, right).unwrap();
+    //frame.render_widget(glass, right);
+    image::image(frame, right).unwrap();
 }
 
 fn edit_window(frame: &mut Frame<'_>, editing: &CurrentlyEditing, app: &App) {
@@ -172,26 +177,28 @@ fn edit_window(frame: &mut Frame<'_>, editing: &CurrentlyEditing, app: &App) {
     frame.render_widget(popup_block, area);
 
     let popup_chunks = Layout::default()
-        .direction(Direction::Horizontal)
+        .direction(Direction::Vertical)
         .margin(1)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .constraints([Constraint::Length(4), Constraint::Min(5)])
         .split(area);
 
     let mut key_block = Block::default().title("Key").borders(Borders::ALL);
+
     let mut value_block = Block::default().title("Value").borders(Borders::ALL);
 
     let active_style = Style::default().bg(Color::LightYellow).fg(Color::Black);
 
     match editing {
-        CurrentlyEditing::Key => key_block = key_block.style(active_style),
-        CurrentlyEditing::Value => value_block = value_block.style(active_style),
+        CurrentlyEditing::Name => key_block = key_block.style(active_style),
+        CurrentlyEditing::Description => value_block = value_block.style(active_style),
+        _ => todo!(),
     };
 
-    let key_text = Paragraph::new(app.key_input.clone()).block(key_block);
-    frame.render_widget(key_text, popup_chunks[0]);
+    let name_text = &app.name_text;
+    frame.render_widget(name_text, popup_chunks[0]);
 
-    let value_text = Paragraph::new(app.value_input.clone()).block(value_block);
-    frame.render_widget(value_text, popup_chunks[1]);
+    let desc_text = &app.desc_text;
+    frame.render_widget(desc_text, popup_chunks[1]);
 }
 
 fn exit_popup(frame: &mut Frame<'_>) {

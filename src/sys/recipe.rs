@@ -84,25 +84,43 @@ pub struct Item {
     opened: Option<NaiveDate>,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum Quantity {
+    // grams
     Mass(measurements::Mass),
+    // mililiter
     Volume(measurements::Volume),
+    // things
     Countable(u32),
 }
 
 #[builder]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Recipe {
     pub name: String,
+
+    #[serde(default)]
     pub short_desc: Option<String>,
+
+    #[serde(default)]
     pub description: Option<String>,
+
+    #[serde(default)]
     #[builder(default)]
-    steps: Vec<String>,
-    pub ingredients: Vec<(measurements::Volume, Product)>,
-    /// percentage
+    pub ingredients: Vec<(Volume, Product)>,
+
+    #[serde(default)]
+    #[builder(default)]
     pub dilution: f64,
+
+    #[serde(default)]
     pub glassware: Option<Glassware>,
+}
+
+impl Recipe {
+    pub fn new(name: String) -> Recipe {
+        Self::builder().name(name).build()
+    }
 }
 
 #[derive(Clone, PartialEq, Eq)]

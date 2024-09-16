@@ -15,13 +15,15 @@ use ratatui::{prelude::CrosstermBackend, Terminal};
 
 use crate::app::{events::run_app, App};
 
-
 pub fn initialize_panic_handler() {
-  std::panic::set_hook(Box::new(|panic_info| {
-    crossterm::execute!(std::io::stderr(), crossterm::terminal::LeaveAlternateScreen).unwrap();
-    crossterm::terminal::disable_raw_mode().unwrap();
-    Settings::auto().most_recent_first(false).lineno_suffix(true).create_panic_handler()(panic_info);
-  }));
+    std::panic::set_hook(Box::new(|panic_info| {
+        crossterm::execute!(std::io::stderr(), crossterm::terminal::LeaveAlternateScreen).unwrap();
+        crossterm::terminal::disable_raw_mode().unwrap();
+        Settings::auto()
+            .most_recent_first(false)
+            .lineno_suffix(true)
+            .create_panic_handler()(panic_info);
+    }));
 }
 
 fn init() -> Result<()> {
@@ -49,7 +51,7 @@ fn init() -> Result<()> {
     terminal.show_cursor()?;
     if let Ok(do_print) = res {
         if do_print {
-            app.print_json()?;
+            app.print_toml()?;
         }
     } else if let Err(err) = res {
         println!("{err:?}");
@@ -57,7 +59,6 @@ fn init() -> Result<()> {
 
     Ok(())
 }
-
 
 fn main() -> Result<()> {
     // TODO setup clap

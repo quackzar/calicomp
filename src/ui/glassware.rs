@@ -48,19 +48,17 @@ impl Widget for Glass {
         canvas::Canvas::default()
             .x_bounds([-80.0, 80.0])
             .y_bounds([-80.0, 80.0])
-            .paint(|ctx| {
-                match self.kind {
-                    Glassware::Martini => {
-                        let martini = Martini::new();
-                        martini.draw(ctx, Color::White);
-                    },
-                    Glassware::Lowball => {
-                        let tumbler = Martini::new();
-                        tumbler.draw(ctx, Color::White);
-                    },
-                    _ => {
-                        ctx.print(0., 0., "Unknown");
-                    }
+            .paint(|ctx| match self.kind {
+                Glassware::Martini => {
+                    let martini = Martini::new();
+                    martini.draw(ctx, Color::White);
+                }
+                Glassware::Lowball => {
+                    let tumbler = Martini::new();
+                    tumbler.draw(ctx, Color::White);
+                }
+                _ => {
+                    ctx.print(0., 0., "Unknown");
                 }
             })
             .render(area, buf)

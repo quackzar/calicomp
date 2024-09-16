@@ -1,6 +1,12 @@
+pub mod data;
 pub mod events;
 
-use std::collections::HashMap;
+use tui_textarea::TextArea;
+
+use crate::{
+    app::data::Repostory,
+    sys::recipe::{Product, Recipe},
+};
 
 pub enum CurrentScreen {
     Main,
@@ -9,51 +15,62 @@ pub enum CurrentScreen {
 }
 
 pub enum CurrentlyEditing {
-    Key,
-    Value,
+    Name,
+    Ingredients,
+    Description,
+    // TODO:
 }
 
 pub struct App {
-    pub key_input: String,              // the currently being edited json key.
-    pub value_input: String,            // the currently being edited json value.
-    pub pairs: HashMap<String, String>, // The representation of our key and value pairs with serde Serialize support
+    pub current_recipe: Recipe, // the currently being edited json value.
     pub current_screen: CurrentScreen, // the current screen the user is looking at, and will later determine what is rendered.
     pub currently_editing: Option<CurrentlyEditing>, // the optional state containing which of the key or value pair the user is editing. It is an option, because when the user is not directly editing a key-value pair, this will be set to `None`.
+    pub repo: Repostory,
+    pub desc_text: TextArea<'static>,
+    pub name_text: TextArea<'static>,
 }
 
 impl App {
     pub fn new() -> App {
         App {
-            key_input: String::new(),
-            value_input: String::new(),
-            pairs: HashMap::new(),
+            current_recipe: Recipe::new("Unnamed Recipe".to_string()),
+            repo: Repostory::default(),
             current_screen: CurrentScreen::Main,
             currently_editing: None,
+            desc_text: TextArea::default(),
+            name_text: TextArea::default(),
         }
     }
 
-    pub fn save_key_value(&mut self) {
-        self.pairs
-            .insert(self.key_input.clone(), self.value_input.clone());
+    pub fn save_current_recipe(&mut self) {
+        let recipe  = Recipe::builder()
+            .name(self.name_text.lines().concat())
+            .description(self.desc_text.lines().concat())
+            .build();
 
-        self.key_input = String::new();
-        self.value_input = String::new();
+        self.repo.recipes.insert( recipe.name.clone(), recipe);
+
         self.currently_editing = None;
     }
 
     pub fn toggle_editing(&mut self) {
         if let Some(edit_mode) = &self.currently_editing {
             match edit_mode {
-                CurrentlyEditing::Key => self.currently_editing = Some(CurrentlyEditing::Value),
-                CurrentlyEditing::Value => self.currently_editing = Some(CurrentlyEditing::Key),
+                CurrentlyEditing::Name => {
+                    self.currently_editing = Some(CurrentlyEditing::Description)
+                }
+                CurrentlyEditing::Description => {
+                    self.currently_editing = Some(CurrentlyEditing::Name)
+                }
+                _ => todo!(),
             };
         } else {
-            self.currently_editing = Some(CurrentlyEditing::Key);
+            self.currently_editing = Some(CurrentlyEditing::Name);
         }
     }
 
-    pub fn print_json(&self) -> serde_json::Result<()> {
-        let output = serde_json::to_string(&self.pairs)?;
+    pub fn print_toml(&self) -> Result<(), toml::ser::Error> {
+        let output = toml::to_string(&self.repo)?;
         println!("{}", output);
         Ok(())
     }

@@ -297,6 +297,7 @@ dependencies = [
  "serde",
  "serde_json",
  "textwrap",
+ "toml",
  "tracing",
  "tracing-subscriber",
  "tui-big-text",
@@ -1050,6 +1051,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f5b734b4e8187ea5777bc29c086f0970a27d8de42061b48f5af32cafc0ca904b"
 dependencies = [
  "libm",
+ "serde",
 ]
 
 [[package]]
