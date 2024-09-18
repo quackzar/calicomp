@@ -2,7 +2,7 @@ pub mod app;
 pub mod sys;
 pub mod ui;
 
-use std::io;
+use std::io::{self, BufWriter};
 
 use better_panic::Settings;
 use crossterm::{
@@ -33,7 +33,7 @@ fn init() -> Result<()> {
     let mut stderr = io::stderr();
     execute!(stderr, EnterAlternateScreen, EnableMouseCapture)?;
 
-    let backend = CrosstermBackend::new(stderr);
+    let backend = CrosstermBackend::new(BufWriter::new(stderr));
     let mut terminal = Terminal::new(backend)?;
 
     initialize_panic_handler();

@@ -20,6 +20,7 @@ ratatui = "0.28.1"
 ratatui-image = "1.0.5"
 serde = { version = "1.0.209", features = ["derive", "std", "alloc"] }
 serde_json = "1.0.127"
+tempfile = "3.12.0"
 textwrap = "0.16.1"
 toml = "0.8.19"
 tracing = "0.1.40"

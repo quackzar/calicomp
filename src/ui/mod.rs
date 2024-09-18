@@ -2,13 +2,10 @@ pub mod card;
 pub mod glassware;
 pub mod image;
 
-use std::iter;
-
 use ratatui::{
     prelude::*,
-    widgets::{Block, Borders, Clear, List, Paragraph, Wrap},
+    widgets::{Block, Borders, Clear, HighlightSpacing, List, ListItem, Paragraph, Wrap},
 };
-use tui_textarea::TextArea;
 
 use crate::{
     app::{App, CurrentScreen, CurrentlyEditing},
@@ -39,7 +36,7 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
         .split(popup_layout[1])[1] // Return the middle chunk
 }
 
-pub fn ui(frame: &mut Frame, app: &App) {
+pub fn ui(frame: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -62,8 +59,12 @@ pub fn ui(frame: &mut Frame, app: &App) {
 
     frame.render_widget(title, chunks[0]);
 
-    let list = List::from_iter(iter::from_fn(|| Some("Another Cocktail")).take(20))
-        .highlight_symbol(">>")
+    let list = List::from_iter(app.recipes.iter()
+        .map(|recipe|{
+            ListItem::from(recipe.clone())
+        }))
+        .highlight_symbol(">")
+        .highlight_spacing(HighlightSpacing::Always)
         .highlight_style(Style::new().yellow());
 
     let [left, right] = Layout::default()
@@ -71,8 +72,8 @@ pub fn ui(frame: &mut Frame, app: &App) {
         .constraints([Constraint::Ratio(1, 2); 2])
         .areas(chunks[1]);
 
-    frame.render_widget(list, left);
-    recipe_window(frame, right);
+    frame.render_stateful_widget(list, left, &mut app.list_state);
+    recipe_window(app, frame, right);
 
     let current_navigation_text = vec![
         // The first half of the text
@@ -139,8 +140,8 @@ pub fn ui(frame: &mut Frame, app: &App) {
     frame.render_widget(mode_footer, footer_chunks[0]);
     frame.render_widget(key_notes_footer, footer_chunks[1]);
 
-    if let Some(editing) = &app.currently_editing {
-        edit_window(frame, editing, app);
+    if let Some(editing) = app.currently_editing {
+        edit_window(frame, &editing, app);
     }
 
     if let CurrentScreen::Exiting = app.current_screen {
@@ -148,8 +149,8 @@ pub fn ui(frame: &mut Frame, app: &App) {
     }
 }
 
-fn recipe_window(frame: &mut Frame<'_>, right: Rect) {
-    let daiquiri = sys::db::new_daiq();
+fn recipe_window(app: &App, frame: &mut Frame<'_>, right: Rect) {
+    let daiquiri = &app.current_recipe;
     let glass = glassware::Glass::from(daiquiri.glassware.unwrap_or(Glassware::Highball));
 
     let [left, right] = Layout::default()
@@ -158,16 +159,16 @@ fn recipe_window(frame: &mut Frame<'_>, right: Rect) {
         .areas(right);
 
     let card = RecipeCard {
-        recipe: Some(&daiquiri),
+        recipe: Some(daiquiri),
     };
 
     frame.render_widget(&card, left);
 
-    //frame.render_widget(glass, right);
-    image::image(frame, right).unwrap();
+    frame.render_widget(glass, right);
+    //image::image(frame, right).unwrap();
 }
 
-fn edit_window(frame: &mut Frame<'_>, editing: &CurrentlyEditing, app: &App) {
+fn edit_window(frame: &mut Frame<'_>, editing: &CurrentlyEditing, app: &mut App) {
     let popup_block = Block::default()
         .title("Enter a new key-value pair")
         .borders(Borders::NONE)
@@ -194,11 +195,15 @@ fn edit_window(frame: &mut Frame<'_>, editing: &CurrentlyEditing, app: &App) {
         _ => todo!(),
     };
 
-    let name_text = &app.name_text;
-    frame.render_widget(name_text, popup_chunks[0]);
 
-    let desc_text = &app.desc_text;
-    frame.render_widget(desc_text, popup_chunks[1]);
+    let name_text = &mut app.name_text;
+    name_text.set_block(key_block);
+
+    frame.render_widget(&*name_text, popup_chunks[0]);
+
+    let desc_text = &mut app.desc_text;
+    desc_text.set_block(value_block);
+    frame.render_widget(&*desc_text, popup_chunks[1]);
 }
 
 fn exit_popup(frame: &mut Frame<'_>) {
