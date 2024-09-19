@@ -1,13 +1,9 @@
-pub mod data;
 pub mod events;
 
 use ratatui::widgets::ListState;
 use tui_textarea::TextArea;
 
-use crate::{
-    app::data::Repostory,
-    sys::{self, db, recipe::Recipe},
-};
+use crate::sys::{self, data::Repostory, db, recipe::DumbRecipe};
 
 #[derive(Clone, Copy)]
 pub enum CurrentScreen {
@@ -25,7 +21,7 @@ pub enum CurrentlyEditing {
 }
 
 pub struct App {
-    pub current_recipe: Recipe, // the currently being edited json value.
+    pub current_recipe: DumbRecipe, // the currently being edited json value.
     pub current_screen: CurrentScreen, // the current screen the user is looking at, and will later determine what is rendered.
     pub currently_editing: Option<CurrentlyEditing>, // the optional state containing which of the key or value pair the user is editing. It is an option, because when the user is not directly editing a key-value pair, this will be set to `None`.
     pub repo: Repostory,
@@ -42,12 +38,12 @@ impl App {
         repo.recipes.insert("Baiquri".to_string(), db::new_daiq());
         repo.recipes.insert("Caiquri".to_string(), db::new_daiq());
         repo.recipes.insert("aiquri".to_string(), db::new_daiq());
-        
+
         let recipes = Vec::from_iter(repo.recipes.keys().cloned());
         App {
             repo,
             recipes,
-            current_recipe: sys::db::new_daiq(),
+            current_recipe: sys::db::new_daiq().dumb(),
             current_screen: CurrentScreen::Main,
             currently_editing: None,
             desc_text: TextArea::default(),
@@ -56,11 +52,14 @@ impl App {
         }
     }
 
-    pub fn save_current_recipe(&mut self) {
+    pub fn save_current_recipe(&mut self) -> Option<()> {
         let recipe = self.current_recipe.clone();
+        let recipe = self.repo.enrich(recipe)?;
+
         self.repo.recipes.insert(recipe.name.clone(), recipe);
 
         self.currently_editing = None;
+        Some(())
     }
 
     pub fn toggle_editing(&mut self) {

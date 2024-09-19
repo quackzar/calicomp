@@ -6,10 +6,10 @@ use ratatui::{
     widgets::{List, ListItem, Paragraph},
 };
 
-use crate::sys::recipe::Recipe;
+use crate::sys::recipe::{DumbRecipe, Recipe};
 
 pub struct RecipeCard<'a> {
-    pub recipe: Option<&'a Recipe>,
+    pub recipe: Option<&'a DumbRecipe>,
 }
 
 impl<'a> Widget for &RecipeCard<'a> {
@@ -55,7 +55,7 @@ impl<'a> Widget for &RecipeCard<'a> {
                 .ingredients
                 .iter()
                 .map(|(volume, product)| {
-                    let name = &product.name;
+                    let name = &product;
                     ListItem::new(Line::from(Span::from(format!("* {volume} {name}"))))
                 })
                 .collect();

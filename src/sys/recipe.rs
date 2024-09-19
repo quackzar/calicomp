@@ -121,6 +121,49 @@ impl Recipe {
     pub fn new(name: String) -> Recipe {
         Self::builder().name(name).build()
     }
+
+    pub fn dumb(self) -> DumbRecipe {
+        let Recipe {
+            name,
+            short_desc,
+            description,
+            ingredients,
+            dilution,
+            glassware,
+        } = self;
+
+        let ingredients = ingredients.into_iter()
+            .map( |(v,i)| (v.as_milliliters(),i.name)).collect();
+
+        DumbRecipe {
+            name,
+            short_desc,
+            description,
+            ingredients,
+            dilution,
+            glassware,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DumbRecipe {
+    pub name: String,
+
+    #[serde(default)]
+    pub short_desc: Option<String>,
+
+    #[serde(default)]
+    pub description: Option<String>,
+
+    #[serde(default)]
+    pub ingredients: Vec<(f64, String)>,
+
+    #[serde(default)]
+    pub dilution: f64,
+
+    #[serde(default)]
+    pub glassware: Option<Glassware>,
 }
 
 #[derive(Clone, PartialEq, Eq)]

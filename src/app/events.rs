@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     fs::File,
     io::{self, stdout, Read, Write},
 };
@@ -40,8 +39,10 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Res
                         edit_with_editor(terminal, &mut app.current_recipe).unwrap();
                     }
                     KeyCode::Char('s') => {
+                        let Some(()) = app.save_current_recipe() else {
+                            continue;
+                        };
                         app.recipes.push(app.current_recipe.name.clone());
-                        app.save_current_recipe();
                     }
                     KeyCode::Char('j') | KeyCode::Down => {
                         app.list_state.select_next();
@@ -57,7 +58,7 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Res
                             continue;
                         };
                         let name = &app.recipes[i];
-                        app.current_recipe = app.repo.recipes[name].clone();
+                        app.current_recipe = app.repo.recipes[name].clone().dumb();
                     }
                     _ => {}
                 },
