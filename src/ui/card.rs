@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{List, ListItem, Paragraph},
 };
 
-use crate::sys::recipe::{DumbRecipe, Recipe};
+use crate::sys::{data::DumbRecipe, recipe::Recipe};
 
 pub struct RecipeCard<'a> {
     pub recipe: Option<&'a DumbRecipe>,

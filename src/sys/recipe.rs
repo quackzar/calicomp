@@ -3,7 +3,7 @@ use chrono::NaiveDate;
 use measurements::Volume;
 use serde::{Deserialize, Serialize};
 
-use crate::sys::glass::Glassware;
+use crate::sys::{data::DumbRecipe, glass::Glassware};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Ingredient {
@@ -132,8 +132,10 @@ impl Recipe {
             glassware,
         } = self;
 
-        let ingredients = ingredients.into_iter()
-            .map( |(v,i)| (v.as_milliliters(),i.name)).collect();
+        let ingredients = ingredients
+            .into_iter()
+            .map(|(v, i)| (v.as_milliliters(), i.name))
+            .collect();
 
         DumbRecipe {
             name,
@@ -144,26 +146,6 @@ impl Recipe {
             glassware,
         }
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DumbRecipe {
-    pub name: String,
-
-    #[serde(default)]
-    pub short_desc: Option<String>,
-
-    #[serde(default)]
-    pub description: Option<String>,
-
-    #[serde(default)]
-    pub ingredients: Vec<(f64, String)>,
-
-    #[serde(default)]
-    pub dilution: f64,
-
-    #[serde(default)]
-    pub glassware: Option<Glassware>,
 }
 
 #[derive(Clone, PartialEq, Eq)]

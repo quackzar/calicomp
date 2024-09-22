@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use crate::{
-    app::{App, CurrentScreen, CurrentlyEditing},
+    app::{App, CurrentMode, CurrentlyEditing},
     sys::{self, glass::Glassware},
     ui::card::RecipeCard,
 };
@@ -59,13 +59,14 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
 
     frame.render_widget(title, chunks[0]);
 
-    let list = List::from_iter(app.recipes.iter()
-        .map(|recipe|{
-            ListItem::from(recipe.clone())
-        }))
-        .highlight_symbol(">")
-        .highlight_spacing(HighlightSpacing::Always)
-        .highlight_style(Style::new().yellow());
+    // Here we go!
+    let list = List::from_iter(
+        app.recipes
+            .iter()
+            .map(|recipe| ListItem::from(recipe.clone())),
+    )
+    .highlight_spacing(HighlightSpacing::Always)
+    .highlight_style(Style::new().yellow());
 
     let [left, right] = Layout::default()
         .direction(Direction::Horizontal)
@@ -77,12 +78,12 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
 
     let current_navigation_text = vec![
         // The first half of the text
-        match app.current_screen {
-            CurrentScreen::Main => Span::styled("Viewing Mode", Style::default().fg(Color::Green)),
-            CurrentScreen::Editing => {
+        match app.current_mode {
+            CurrentMode::Main => Span::styled("Viewing Mode", Style::default().fg(Color::Green)),
+            CurrentMode::Editing => {
                 Span::styled("Editing Mode", Style::default().fg(Color::Yellow))
             }
-            CurrentScreen::Exiting => Span::styled("Exiting", Style::default().fg(Color::LightRed)),
+            CurrentMode::Exiting => Span::styled("Exiting", Style::default().fg(Color::LightRed)),
         }
         .to_owned(),
         // A white divider bar to separate the two sections
@@ -113,16 +114,16 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         .block(Block::default().borders(Borders::ALL));
 
     let current_keys_hint = {
-        match app.current_screen {
-            CurrentScreen::Main => Span::styled(
+        match app.current_mode {
+            CurrentMode::Main => Span::styled(
                 "(q) to quit / (e) to make new pair",
                 Style::default().fg(Color::Red),
             ),
-            CurrentScreen::Editing => Span::styled(
+            CurrentMode::Editing => Span::styled(
                 "(ESC) to cancel/(Tab) to switch boxes/enter to complete",
                 Style::default().fg(Color::Red),
             ),
-            CurrentScreen::Exiting => Span::styled(
+            CurrentMode::Exiting => Span::styled(
                 "(q) to quit / (e) to make new pair",
                 Style::default().fg(Color::Red),
             ),
@@ -144,7 +145,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         edit_window(frame, &editing, app);
     }
 
-    if let CurrentScreen::Exiting = app.current_screen {
+    if let CurrentMode::Exiting = app.current_mode {
         exit_popup(frame);
     }
 }
@@ -194,7 +195,6 @@ fn edit_window(frame: &mut Frame<'_>, editing: &CurrentlyEditing, app: &mut App)
         CurrentlyEditing::Description => value_block = value_block.style(active_style),
         _ => todo!(),
     };
-
 
     let name_text = &mut app.name_text;
     name_text.set_block(key_block);

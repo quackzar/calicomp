@@ -23,14 +23,14 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Res
                 // Skip events that are not KeyEventKind::Press
                 continue;
             }
-            match app.current_screen {
-                CurrentScreen::Main => match key.code {
+            match app.current_mode {
+                CurrentMode::Main => match key.code {
                     KeyCode::Char('e') => {
-                        app.current_screen = CurrentScreen::Editing;
+                        app.current_mode = CurrentMode::Editing;
                         app.currently_editing = Some(CurrentlyEditing::Name);
                     }
                     KeyCode::Char('q') => {
-                        app.current_screen = CurrentScreen::Exiting;
+                        app.current_mode = CurrentMode::Exiting;
                     }
                     KeyCode::Char('p') => {
                         panic!("at the disco");
@@ -62,7 +62,7 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Res
                     }
                     _ => {}
                 },
-                CurrentScreen::Exiting => match key.code {
+                CurrentMode::Exiting => match key.code {
                     KeyCode::Char('y') => {
                         return Ok(true);
                     }
@@ -71,7 +71,7 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Res
                     }
                     _ => {}
                 },
-                CurrentScreen::Editing if key.kind == KeyEventKind::Press => match key.code {
+                CurrentMode::Editing if key.kind == KeyEventKind::Press => match key.code {
                     KeyCode::Enter => {
                         if let Some(editing) = &app.currently_editing {
                             match editing {
@@ -80,14 +80,14 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Res
                                 }
                                 CurrentlyEditing::Description => {
                                     app.save_current_recipe();
-                                    app.current_screen = CurrentScreen::Main;
+                                    app.current_mode = CurrentMode::Main;
                                 }
                                 _ => todo!(),
                             }
                         }
                     }
                     KeyCode::Esc => {
-                        app.current_screen = CurrentScreen::Main;
+                        app.current_mode = CurrentMode::Main;
                         app.currently_editing = None;
                     }
                     KeyCode::Tab => {

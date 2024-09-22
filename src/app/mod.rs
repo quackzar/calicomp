@@ -3,13 +3,23 @@ pub mod events;
 use ratatui::widgets::ListState;
 use tui_textarea::TextArea;
 
-use crate::sys::{self, data::Repostory, db, recipe::DumbRecipe};
+use crate::sys::{
+    self,
+    data::{DumbRecipe, Reposotory},
+    db,
+};
 
 #[derive(Clone, Copy)]
-pub enum CurrentScreen {
+pub enum CurrentMode {
     Main,
     Editing,
     Exiting,
+}
+
+#[derive(Clone, Copy)]
+pub enum CurrentScreen {
+    Recipes,
+    Ingredients,
 }
 
 #[derive(Clone, Copy)]
@@ -21,10 +31,11 @@ pub enum CurrentlyEditing {
 }
 
 pub struct App {
+    pub current_screen: CurrentScreen,
     pub current_recipe: DumbRecipe, // the currently being edited json value.
-    pub current_screen: CurrentScreen, // the current screen the user is looking at, and will later determine what is rendered.
+    pub current_mode: CurrentMode, // the current screen the user is looking at, and will later determine what is rendered.
     pub currently_editing: Option<CurrentlyEditing>, // the optional state containing which of the key or value pair the user is editing. It is an option, because when the user is not directly editing a key-value pair, this will be set to `None`.
-    pub repo: Repostory,
+    pub repo: Reposotory,
     pub list_state: ListState,
     pub recipes: Vec<String>,
     pub desc_text: TextArea<'static>,
@@ -33,7 +44,7 @@ pub struct App {
 
 impl App {
     pub fn new() -> App {
-        let mut repo = Repostory::default();
+        let mut repo = Reposotory::default();
         repo.recipes.insert("Daiquri".to_string(), db::new_daiq());
         repo.recipes.insert("Baiquri".to_string(), db::new_daiq());
         repo.recipes.insert("Caiquri".to_string(), db::new_daiq());
@@ -44,7 +55,8 @@ impl App {
             repo,
             recipes,
             current_recipe: sys::db::new_daiq().dumb(),
-            current_screen: CurrentScreen::Main,
+            current_mode: CurrentMode::Main,
+            current_screen: CurrentScreen::Recipes,
             currently_editing: None,
             desc_text: TextArea::default(),
             name_text: TextArea::default(),
