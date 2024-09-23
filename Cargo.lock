@@ -303,6 +303,7 @@ dependencies = [
  "tracing-subscriber",
  "tui-big-text",
  "tui-textarea",
+ "xterm-js-sys",
 ]
 
 [[package]]
@@ -2063,6 +2064,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c62a0a307cb4a311d3a07867860911ca130c3494e8c2719593806c08bc5d0484"
 
 [[package]]
+name = "web-sys"
+version = "0.3.70"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26fdeaafd9bd129f65e7c031593c24d62186301e0c72c8978fa1678be7d532c0"
+dependencies = [
+ "js-sys",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "weezl"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2254,6 +2265,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68a9bda4691f099d435ad181000724da8e5899daa10713c2d432552b9ccd3a6f"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "xterm-js-sys"
+version = "4.6.0-alpha1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fbdd39a705df4ab4ed7316b76aa48df97974716b36f79ea94346dadcb2988d72"
+dependencies = [
+ "js-sys",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
