@@ -3,6 +3,8 @@ name = "calicomp"
 version = "0.1.0"
 edition = "2021"
 
+[cat]
+
 [dependencies]
 better-panic = "0.3.0"
 bon = "2.1.0"

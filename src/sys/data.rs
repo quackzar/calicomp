@@ -1,17 +1,14 @@
 use std::collections::BTreeMap;
 
 use measurements::Volume;
-use serde::{
-    ser::{SerializeMap, SerializeStruct},
-    Deserialize, Serialize,
-};
+use serde::{Deserialize, Serialize};
 
 use crate::sys::{
     glass::Glassware,
     recipe::{Product, Recipe},
 };
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Reposotory {
     pub recipes: BTreeMap<String, Recipe>,
     pub ingredients: BTreeMap<String, Product>,

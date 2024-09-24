@@ -9,20 +9,20 @@ use crate::sys::{
     db,
 };
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum CurrentMode {
     Main,
     Editing,
     Exiting,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum CurrentScreen {
     Recipes,
     Ingredients,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum CurrentlyEditing {
     Name,
     Ingredients,
@@ -30,6 +30,7 @@ pub enum CurrentlyEditing {
     // TODO:
 }
 
+#[derive(Debug)]
 pub struct App {
     pub current_screen: CurrentScreen,
     pub current_recipe: DumbRecipe, // the currently being edited json value.

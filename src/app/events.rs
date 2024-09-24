@@ -12,11 +12,11 @@ use eyre::Result;
 use ratatui::{prelude::Backend, Terminal};
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::{app::*, ui::ui};
+use crate::{app::*, ui::entry};
 
 pub fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<bool> {
     loop {
-        terminal.draw(|f| ui(f, app))?;
+        terminal.draw(|f| entry(f, app))?;
 
         if let Event::Key(key) = event::read()? {
             if key.kind == event::KeyEventKind::Release {
