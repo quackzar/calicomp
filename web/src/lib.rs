@@ -1,6 +1,7 @@
+use calicomp::app::{events::run_app, App};
 use crossterm::{execute, terminal::EnterAlternateScreen};
 use ratatui::prelude::CrosstermBackend;
-use ratatui::Terminal as TuiTerminal
+use ratatui::Terminal as TuiTerminal;
 use wasm_bindgen::prelude::*;
 
 use wasm_bindgen::JsValue;
@@ -33,6 +34,11 @@ pub fn run() -> Result<(), JsValue> {
     execute!((&mut term), EnterAlternateScreen).unwrap();
 
     let backend = CrosstermBackend::new(term);
+
+    let mut terminal = TuiTerminal::new(backend).unwrap();
+
+    let mut app = App::new();
+    let _ = run_app(&mut terminal, &mut app).unwrap();
 
     Ok(())
 }
