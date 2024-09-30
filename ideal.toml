@@ -1,0 +1,32 @@
+name = "Daiquiri"
+dilution = 20.0
+glassware = "Martini"
+
+[description]
+short = "Happy Hour / Summer drink"
+long = "The daiquiri (/ˈdaɪkəri, ˈdæk-/; Spanish: daiquirí [dajkiˈɾi])is a cocktail whose main ingredients are rum, citrus juice(typically lime juice), and sugar or other sweetener."
+
+[[ingredients]]
+ingredient = "Rum"
+amount = 60.0
+unit = "ml"
+
+[[ingredients]]
+ingredient = "Simple Sirup"
+amount = 20.0
+unit = "ml"
+
+[[ingredients]]
+ingredient = "Lime Juice"
+amount = 20.0
+unit = "ml"
+
+
+# Alternative
+ingredients = [
+    [ 60.0, "ml", "Rum", ],
+    [ 20.0, "ml", "Simple Sirup", ],
+    [ 20.0, "ml", "Lime Juice", ],
+]
+
+

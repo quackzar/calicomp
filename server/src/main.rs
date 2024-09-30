@@ -1,8 +1,13 @@
 // adapted from
 // https://github.com/Eugeny/russh/blob/main/russh/examples/ratatui_app.rs
 
-use std::collections::HashMap;
+pub mod http;
+
 use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    net::SocketAddr,
+};
 
 use async_trait::async_trait;
 use ratatui::backend::CrosstermBackend;
@@ -23,7 +28,10 @@ struct TerminalHandle {
     channel_id: ChannelId,
 }
 
-use calicomp::{app::{events::run_app, App}, ui};
+use calicomp::{
+    app::App,
+    ui,
+};
 
 // The crossterm backend writes to the terminal handle.
 impl std::io::Write for TerminalHandle {
@@ -188,7 +196,13 @@ impl Handler for AppServer {
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
+    tokio::spawn(async {
+        let addr: SocketAddr = "127.0.0.1:1111".parse().unwrap();
+        http::start(&addr).await.unwrap();
+    });
+
     let mut server = AppServer::new();
-    tracing::info!("Started server");
     server.run().await.expect("Failed running server");
+    tracing::info!("Started server");
+
 }
