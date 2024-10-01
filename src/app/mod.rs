@@ -41,6 +41,7 @@ pub struct App {
     pub recipes: Vec<String>,
     pub desc_text: TextArea<'static>,
     pub name_text: TextArea<'static>,
+    pub should_quit: bool,
 }
 
 impl App {
@@ -62,6 +63,7 @@ impl App {
             desc_text: TextArea::default(),
             name_text: TextArea::default(),
             list_state: ListState::default(),
+            should_quit: false,
         }
     }
 
