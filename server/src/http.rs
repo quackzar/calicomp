@@ -6,7 +6,7 @@ use axum::routing::get;
 use axum::Router;
 use futures_util::{SinkExt, StreamExt};
 use ratatui::{prelude::CrosstermBackend, Terminal};
-use std::{io::Write, net::SocketAddr};
+use std::{io::Write, net::SocketAddr, time::Duration};
 use tokio::sync::mpsc;
 use tokio::task;
 use tokio::{net::TcpListener, sync::mpsc::Sender};
@@ -72,13 +72,15 @@ async fn handle_connect(
 
 async fn handle_connection(socket: WebSocket) -> Result<()> {
     let mut term = create_term(socket)?;
-
     // TODO: Use a async-version of the app
-    tokio::task::spawn_blocking(move || {
+    tokio::task::spawn(async move {
         let mut app = calicomp::app::App::new();
-        calicomp::app::events::run_app(&mut term, &mut app)
+        loop {
+            tokio::time::sleep(Duration::from_millis(200)).await;
+            term.draw(|f| calicomp::ui::entry(f, &mut app)).unwrap();
+        }
     })
-    .await??;
+    .await?;
 
     Ok(())
 }
@@ -123,7 +125,7 @@ fn create_term(socket: WebSocket) -> Result<ProxyTerminal> {
     };
 
     let stdout = {
-        let (tx, mut rx) = mpsc::channel::<Vec<u8>>(1);
+        let (tx, mut rx) = mpsc::channel::<Vec<u8>>(8);
 
         task::spawn(
             async move {
@@ -174,7 +176,11 @@ impl Write for ProxyWriter {
 
     fn flush(&mut self) -> std::io::Result<()> {
         let msg = std::mem::take(&mut self.buffer);
-        let _ = self.stdout.blocking_send(msg);
-        Ok(())
+        // This is probably the right way, if the buffer gets full
+        // or channel closed it will be an error, but that seems correct.
+        // We will just need to be able to recover from such errors.
+        self.stdout.try_send(msg).map_err(|e| {
+            std::io::Error::new(std::io::ErrorKind::BrokenPipe, e)
+        })
     }
 }
