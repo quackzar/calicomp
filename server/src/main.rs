@@ -4,18 +4,17 @@
 pub mod http;
 
 use std::sync::Arc;
-use std::{
-    collections::HashMap,
-    net::SocketAddr,
-};
+use std::{collections::HashMap, net::SocketAddr};
 
 use async_trait::async_trait;
+use ed25519_dalek::{pkcs8::{spki::der::pem::LineEnding::LF, DecodePrivateKey, EncodePrivateKey}, SigningKey};
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::Rect;
 use ratatui::Terminal;
 use russh::keys::key::PublicKey;
 use russh::server::*;
 use russh::{Channel, ChannelId};
+use russh_keys::key::KeyPair;
 use tokio::sync::Mutex;
 
 type SshTerminal = Terminal<CrosstermBackend<TerminalHandle>>;
@@ -28,10 +27,7 @@ struct TerminalHandle {
     channel_id: ChannelId,
 }
 
-use calicomp::{
-    app::App,
-    ui,
-};
+use calicomp::{app::App, ui};
 
 // The crossterm backend writes to the terminal handle.
 impl std::io::Write for TerminalHandle {
@@ -77,21 +73,29 @@ impl AppServer {
                 tokio::time::sleep(tokio::time::Duration::from_millis(2)).await;
                 for (_, (terminal, app)) in clients.lock().await.iter_mut() {
                     // We can't reuse events here, as it would be blocking.
-                    // We also need to poll events in another way
-                    // and convert the bytes into KeyCode events.
-                    //
-                    // See:
-                    // https://github.com/ricott1/sshattrick/blob/e91f5c42a45bf784925fc47bfc372dc8865448de/src/server.rs#L40
                     terminal.draw(|f| ui::entry(f, app)).unwrap();
                 }
             }
         });
 
+        let key = if let Ok(key) = tokio::fs::read_to_string("keypair").await {
+            tracing::info!("Loaded key");
+            let key = SigningKey::from_pkcs8_encrypted_pem(&key, [])?;
+            KeyPair::Ed25519(key)
+        } else {
+            tracing::info!("No keypair found at './keypair', generating new");
+            let key = KeyPair::generate_ed25519().unwrap();
+            let KeyPair::Ed25519(k) = &key else { panic!() };
+            let res = SigningKey::to_pkcs8_pem(k, LF)?;
+            tokio::fs::write("keypair", res).await?;
+            key
+        };
+
         let config = Config {
             inactivity_timeout: Some(std::time::Duration::from_secs(3600)),
             auth_rejection_time: std::time::Duration::from_secs(3),
             auth_rejection_time_initial: Some(std::time::Duration::from_secs(0)),
-            keys: vec![russh_keys::key::KeyPair::generate_ed25519().unwrap()],
+            keys: vec![key],
             ..Default::default()
         };
 
@@ -204,5 +208,4 @@ async fn main() {
     let mut server = AppServer::new();
     server.run().await.expect("Failed running server");
     tracing::info!("Started server");
-
 }

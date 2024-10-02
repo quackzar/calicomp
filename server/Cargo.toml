@@ -21,3 +21,6 @@ tower-http = { version = "0.6.1", features = ["auth", "cors", "trace", "validate
 futures-util = "0.3.30"
 serde = { version = "1.0.210", features = ["derive", "std", "alloc"] }
 serde_json = "1.0.128"
+crossterm = { version = "0.28.1", features = ["event-stream"] }
+termwiz = "0.22.0"
+ed25519-dalek = "2.1.1"

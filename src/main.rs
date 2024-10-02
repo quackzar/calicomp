@@ -3,15 +3,17 @@ pub mod sys;
 pub mod tui;
 pub mod ui;
 
-use std::{fs::File, io::{self, stdout, BufWriter, Read}};
+use std::{
+    fs::File,
+    io::{self, stdout, BufWriter, Read},
+};
 
 use better_panic::Settings;
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,
-    terminal::{
-        disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
-    }, ExecutableCommand,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    ExecutableCommand,
 };
 use eyre::Result;
 use ratatui::{
@@ -19,7 +21,6 @@ use ratatui::{
     Terminal,
 };
 use serde::{de::DeserializeOwned, Serialize};
-
 
 pub fn initialize_panic_handler() {
     std::panic::set_hook(Box::new(|panic_info| {
@@ -31,7 +32,6 @@ pub fn initialize_panic_handler() {
             .create_panic_handler()(panic_info);
     }));
 }
-
 
 fn edit_with_editor<B: Backend, T>(terminal: &mut Terminal<B>, edit: &mut T) -> Result<()>
 where

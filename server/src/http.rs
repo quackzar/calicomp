@@ -1,18 +1,22 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use axum::extract::ws::{Message, WebSocket};
 use axum::extract::{ConnectInfo, DefaultBodyLimit, WebSocketUpgrade};
 use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::Router;
+use calicomp::app::{events, CurrentMode, CurrentScreen};
+use crossterm::event::Event;
 use futures_util::{SinkExt, StreamExt};
-use ratatui::{prelude::CrosstermBackend, Terminal};
+use ratatui::{prelude::*, Terminal};
 use std::{io::Write, net::SocketAddr, time::Duration};
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::{self, Receiver};
 use tokio::task;
 use tokio::{net::TcpListener, sync::mpsc::Sender};
 use tower_http::cors::{self, CorsLayer};
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{info, info_span, Instrument};
+
+use termwiz::input::{InputEvent, InputParser};
 
 pub async fn start(addr: &SocketAddr) -> Result<()> {
     info!(?addr, "starting http server");
@@ -71,13 +75,32 @@ async fn handle_connect(
 }
 
 async fn handle_connection(socket: WebSocket) -> Result<()> {
-    let mut term = create_term(socket)?;
-    // TODO: Use a async-version of the app
+    let (mut term, mut handler) = create_term(socket)?;
     tokio::task::spawn(async move {
         let mut app = calicomp::app::App::new();
         loop {
             tokio::time::sleep(Duration::from_millis(200)).await;
             term.draw(|f| calicomp::ui::entry(f, &mut app)).unwrap();
+            let Ok(event) = handler.next().await else {break};
+            tracing::debug!("event: {event:?}");
+            match event {
+                InputEvent::Key(key_event) => {
+                    match key_event.key {
+                        termwiz::input::KeyCode::Char('e') => {
+                            app.current_mode = CurrentMode::Editing;
+                        },
+                        termwiz::input::KeyCode::Char('k') => {
+                            app.list_state.select_next();
+                        },
+                        _ => {},
+                    }
+                },
+                InputEvent::Resized { cols, rows } => {
+                    tracing::debug!("resized to {cols} x {rows}");
+                },
+                _ => {},
+            }
+
         }
     })
     .await?;
@@ -85,7 +108,7 @@ async fn handle_connection(socket: WebSocket) -> Result<()> {
     Ok(())
 }
 
-fn create_term(socket: WebSocket) -> Result<ProxyTerminal> {
+fn create_term(socket: WebSocket) -> Result<(ProxyTerminal, EventHandler)> {
     let (mut stdout, mut stdin) = socket.split();
 
     let stdin = {
@@ -110,8 +133,8 @@ fn create_term(socket: WebSocket) -> Result<ProxyTerminal> {
                             //
                         }
 
-                        Err(_) => {
-                            info!("couldn't pull data from socket, killing stdin");
+                        Err(err) => {
+                            info!("couldn't pull data from socket, killing stdin: {err}");
 
                             return;
                         }
@@ -149,18 +172,41 @@ fn create_term(socket: WebSocket) -> Result<ProxyTerminal> {
     let backend = CrosstermBackend::new(writer);
     let term = Terminal::new(backend)?;
 
+    let handler = EventHandler::new(stdin);
 
-    tokio::spawn(async move {
-        let mut stdin = stdin;
-        loop {
-            stdin.recv().await;
-        }
-    });
-
-    Ok(term)
+    Ok((term, handler))
 }
 
 type ProxyTerminal = Terminal<CrosstermBackend<ProxyWriter>>;
+
+pub struct EventHandler {
+    channel: Receiver<InputEvent>,
+}
+
+impl EventHandler {
+    pub fn new(stdin: Receiver<Vec<u8>>) -> Self {
+        let (sx, rx) = tokio::sync::mpsc::channel(1);
+        tokio::spawn(async move {
+            let mut input_parser = InputParser::new();
+            let mut stdin = stdin;
+            loop {
+                let msg = stdin.recv().await.expect("Stdin closed");
+                input_parser.parse(&msg, |e| {
+                    let _ =sx.try_send(e);
+                }, true);
+            };
+        });
+
+        EventHandler { channel: rx }
+
+    }
+    pub async fn next(&mut self) -> Result<InputEvent> {
+        self.channel.recv().await.ok_or_else(|| {
+            anyhow!("Stream closed")
+        })
+    }
+}
+
 
 #[derive(Debug)]
 struct ProxyWriter {
@@ -179,8 +225,8 @@ impl Write for ProxyWriter {
         // This is probably the right way, if the buffer gets full
         // or channel closed it will be an error, but that seems correct.
         // We will just need to be able to recover from such errors.
-        self.stdout.try_send(msg).map_err(|e| {
-            std::io::Error::new(std::io::ErrorKind::BrokenPipe, e)
-        })
+        self.stdout
+            .try_send(msg)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::BrokenPipe, e))
     }
 }

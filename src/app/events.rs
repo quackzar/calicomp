@@ -109,4 +109,3 @@ pub async fn update(app: &mut App, event: Event) -> Result<()> {
     }
     Ok(())
 }
-
