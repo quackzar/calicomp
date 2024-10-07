@@ -4,8 +4,6 @@ use axum::extract::{ConnectInfo, DefaultBodyLimit, WebSocketUpgrade};
 use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::Router;
-use calicomp::app::{events, CurrentMode, CurrentScreen};
-use crossterm::event::Event;
 use futures_util::{SinkExt, StreamExt};
 use ratatui::{prelude::*, Terminal};
 use std::{io::Write, net::SocketAddr, time::Duration};
@@ -17,6 +15,8 @@ use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{info, info_span, Instrument};
 
 use termwiz::input::{InputEvent, InputParser};
+
+use crate::events::EventStream;
 
 pub async fn start(addr: &SocketAddr) -> Result<()> {
     info!(?addr, "starting http server");
@@ -81,26 +81,20 @@ async fn handle_connection(socket: WebSocket) -> Result<()> {
         loop {
             tokio::time::sleep(Duration::from_millis(200)).await;
             term.draw(|f| calicomp::ui::entry(f, &mut app)).unwrap();
-            let Ok(event) = handler.next().await else {break};
-            tracing::debug!("event: {event:?}");
-            match event {
-                InputEvent::Key(key_event) => {
-                    match key_event.key {
-                        termwiz::input::KeyCode::Char('e') => {
-                            app.current_mode = CurrentMode::Editing;
-                        },
-                        termwiz::input::KeyCode::Char('k') => {
-                            app.list_state.select_next();
-                        },
-                        _ => {},
-                    }
+            let event = match handler.next().await {
+                Ok(Some(event)) => event,
+                Ok(None) => {
+                    tracing::info!("Input stream closed");
+                    break;
                 },
-                InputEvent::Resized { cols, rows } => {
-                    tracing::debug!("resized to {cols} x {rows}");
+                Err(err) => {
+                    tracing::info!("Error from stdin: {err:?}");
+                    break;
                 },
-                _ => {},
-            }
+            };
 
+            tracing::debug!("Got event: {event:?}");
+            calicomp::app::events::update(&mut app, event).await.unwrap();
         }
     })
     .await?;
@@ -108,7 +102,7 @@ async fn handle_connection(socket: WebSocket) -> Result<()> {
     Ok(())
 }
 
-fn create_term(socket: WebSocket) -> Result<(ProxyTerminal, EventHandler)> {
+fn create_term(socket: WebSocket) -> Result<(ProxyTerminal, EventStream)> {
     let (mut stdout, mut stdin) = socket.split();
 
     let stdin = {
@@ -172,7 +166,7 @@ fn create_term(socket: WebSocket) -> Result<(ProxyTerminal, EventHandler)> {
     let backend = CrosstermBackend::new(writer);
     let term = Terminal::new(backend)?;
 
-    let handler = EventHandler::new(stdin);
+    let handler = crate::events::EventStream::new(stdin);
 
     Ok((term, handler))
 }

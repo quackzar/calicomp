@@ -2,6 +2,9 @@ use eyre::{OptionExt, Result};
 use std::time::Duration;
 
 use crossterm::event::Event;
+use futures::stream::{Stream, StreamExt};
+
+// This is redundant with event_stream;
 
 pub struct EventHandler {
     rx: tokio::sync::mpsc::UnboundedReceiver<Event>,
@@ -15,10 +18,10 @@ impl EventHandler {
         let task = tokio::spawn(async move {
             loop {
                 tokio::time::sleep(tick_rate).await;
-                if let Ok(true) = crossterm::event::poll(Duration::from_secs(0)) {
-                    let event = crossterm::event::read().unwrap();
-                    let _ = tx.send(event);
-                }
+                // if let Ok(event) = events.poll().await {
+                //     let event = crossterm::event::read().unwrap();
+                //     let _ = tx.send(event);
+                // }
             }
         });
 

@@ -11,9 +11,10 @@ bon = "2.1.0"
 chrono = "0.4.38"
 clap = "4.5.17"
 color-eyre = "0.6.3"
-crossterm = { version = "0.28.1", features = ["event-stream"] }
+crossterm = { version = "0.28.1", features = ["event-stream", "serde"] }
 directories = "5.0.1"
 eyre = "0.6.12"
+futures = "0.3.31"
 human-panic = "2.0.1"
 image = "0.25.2"
 itertools = "0.13.0"

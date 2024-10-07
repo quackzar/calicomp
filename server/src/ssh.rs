@@ -74,13 +74,14 @@ impl AppServer {
                 for (_, (terminal, app)) in clients.lock().await.iter_mut() {
                     // We can't reuse events here, as it would be blocking.
                     terminal.draw(|f| ui::entry(f, app)).unwrap();
+
                 }
             }
         });
 
-        let key = if let Ok(key) = tokio::fs::read_to_string("keypair").await {
-            tracing::info!("Loaded key");
-            let key = SigningKey::from_pkcs8_encrypted_pem(&key, [])?;
+        let key = if let Ok(key) = tokio::fs::read_to_string("./keypair").await {
+            tracing::info!("Loaded private key");
+            let key = SigningKey::from_pkcs8_pem(&key)?; 
             KeyPair::Ed25519(key)
         } else {
             tracing::info!("No keypair found at './keypair', generating new");
@@ -159,6 +160,7 @@ impl Handler for AppServer {
         data: &[u8],
         session: &mut Session,
     ) -> Result<(), Self::Error> {
+        
         match data {
             // Pressing 'q' closes the connection.
             b"q" => {

@@ -10,17 +10,20 @@ use std::{
 
 use better_panic::Settings;
 use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture},
+    event::{DisableMouseCapture, EnableMouseCapture, EventStream},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     ExecutableCommand,
 };
-use eyre::Result;
+use eyre::{OptionExt, Result};
+use futures::StreamExt;
 use ratatui::{
     prelude::{Backend, CrosstermBackend},
     Terminal,
 };
 use serde::{de::DeserializeOwned, Serialize};
+
+use crate::app::events;
 
 pub fn initialize_panic_handler() {
     std::panic::set_hook(Box::new(|panic_info| {
@@ -72,14 +75,18 @@ where
 
 async fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> Result<()> {
     let mut app = app::App::new();
-    let mut event_handler = tui::EventHandler::new();
+    let mut event_stream = EventStream::new();
 
     loop {
         terminal.draw(|f| {
             ui::entry(f, &mut app);
         })?;
-        let event = event_handler.next().await?;
-        app::events::update(&mut app, event).await?;
+
+        let Some(event) = event_stream.next().await else {
+            tracing::info!("Event stream shutdown");
+            break Ok(())
+        };
+        app::events::update(&mut app, event?).await?;
         if app.should_quit {
             break Ok(());
         }
