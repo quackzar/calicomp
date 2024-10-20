@@ -235,8 +235,8 @@ pub(crate) fn parse_csi_cursor_position(buffer: &[u8]) -> io::Result<Option<Even
 
     let mut split = s.split(';');
 
-    let y = next_parsed::<u16>(&mut split)? - 1;
-    let x = next_parsed::<u16>(&mut split)? - 1;
+    let _y = next_parsed::<u16>(&mut split)? - 1;
+    let _x = next_parsed::<u16>(&mut split)? - 1;
 
     //Ok(Some(InternalEvent::CursorPosition(x, y)))
     todo!()

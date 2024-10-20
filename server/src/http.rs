@@ -4,19 +4,20 @@ use axum::extract::{ConnectInfo, DefaultBodyLimit, WebSocketUpgrade};
 use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::Router;
+use calicomp::app::{events::update, App};
+use crossterm::event::Event;
+use futures::stream::SplitStream;
 use futures_util::{SinkExt, StreamExt};
 use ratatui::{prelude::*, Terminal};
-use std::{io::Write, net::SocketAddr, time::Duration};
-use tokio::sync::mpsc::{self, Receiver};
+use std::{io::Write, net::SocketAddr};
+use tokio::{sync::mpsc::{self, Receiver}, task::JoinHandle};
 use tokio::task;
 use tokio::{net::TcpListener, sync::mpsc::Sender};
 use tower_http::cors::{self, CorsLayer};
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{info, info_span, Instrument};
 
-use termwiz::input::{InputEvent, InputParser};
-
-use crate::events::EventStream;
+use crate::parser::{self, parse_event};
 
 pub async fn start(addr: &SocketAddr) -> Result<()> {
     info!(?addr, "starting http server");
@@ -75,76 +76,22 @@ async fn handle_connect(
 }
 
 async fn handle_connection(socket: WebSocket) -> Result<()> {
-    let (mut term, mut handler) = create_term(socket)?;
+    let mut instance = create_term(socket)?;
     tokio::task::spawn(async move {
-        let mut app = calicomp::app::App::new();
-        loop {
-            tokio::time::sleep(Duration::from_millis(200)).await;
-            term.draw(|f| calicomp::ui::entry(f, &mut app)).unwrap();
-            let event = match handler.next().await {
-                Ok(Some(event)) => event,
-                Ok(None) => {
-                    tracing::info!("Input stream closed");
-                    break;
-                },
-                Err(err) => {
-                    tracing::info!("Error from stdin: {err:?}");
-                    break;
-                },
-            };
-
-            tracing::debug!("Got event: {event:?}");
-            calicomp::app::events::update(&mut app, event).await.unwrap();
-        }
-    })
-    .await?;
+        let res = instance.drive().await;
+        tracing::info!("Instance stopped: {res:?}");
+    });
 
     Ok(())
 }
 
-fn create_term(socket: WebSocket) -> Result<(ProxyTerminal, EventStream)> {
-    let (mut stdout, mut stdin) = socket.split();
+fn create_term(socket: WebSocket) -> Result<Instance> {
+    let (mut stdout, stdin) = socket.split();
 
-    let stdin = {
-        let (tx, rx) = mpsc::channel(1);
-        task::spawn(
-            async move {
-                while let Some(msg) = stdin.next().await {
-                    match msg {
-                        Ok(Message::Text(msg)) => {
-                            if tx.send(msg.into_bytes()).await.is_err() {
-                                break;
-                            }
-                        }
-
-                        Ok(Message::Binary(msg)) => {
-                            if tx.send(msg).await.is_err() {
-                                break;
-                            }
-                        }
-
-                        Ok(_) => {
-                            //
-                        }
-
-                        Err(err) => {
-                            info!("couldn't pull data from socket, killing stdin: {err}");
-
-                            return;
-                        }
-                    }
-                }
-            }
-            .in_current_span(),
-        );
-
-        rx
-    };
-
-    let stdout = {
+    let (stdout, task) = {
         let (tx, mut rx) = mpsc::channel::<Vec<u8>>(8);
 
-        task::spawn(
+        let task = task::spawn(
             async move {
                 while let Some(msg) = rx.recv().await {
                     if stdout.send(Message::Binary(msg)).await.is_err() {
@@ -155,8 +102,7 @@ fn create_term(socket: WebSocket) -> Result<(ProxyTerminal, EventStream)> {
             }
             .in_current_span(),
         );
-
-        tx
+        (tx, task)
     };
 
     let writer = ProxyWriter {
@@ -166,39 +112,101 @@ fn create_term(socket: WebSocket) -> Result<(ProxyTerminal, EventStream)> {
     let backend = CrosstermBackend::new(writer);
     let term = Terminal::new(backend)?;
 
-    let handler = crate::events::EventStream::new(stdin);
+    let instance= Instance {
+        pty: term,
+        stdin,
+        task,
+        app: calicomp::app::App::new(),
+    };
 
-    Ok((term, handler))
+    Ok(instance)
 }
 
 type ProxyTerminal = Terminal<CrosstermBackend<ProxyWriter>>;
 
-pub struct EventHandler {
-    channel: Receiver<InputEvent>,
+
+struct Instance {
+    app: App,
+    pty: ProxyTerminal,
+    stdin: SplitStream<WebSocket>,
+    task: JoinHandle<()>
 }
 
-impl EventHandler {
-    pub fn new(stdin: Receiver<Vec<u8>>) -> Self {
-        let (sx, rx) = tokio::sync::mpsc::channel(1);
-        tokio::spawn(async move {
-            let mut input_parser = InputParser::new();
-            let mut stdin = stdin;
-            loop {
-                let msg = stdin.recv().await.expect("Stdin closed");
-                input_parser.parse(&msg, |e| {
-                    let _ =sx.try_send(e);
-                }, true);
-            };
-        });
+impl Drop for Instance {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
 
-        EventHandler { channel: rx }
+impl Instance {
+    pub async fn draw_state(&mut self) -> anyhow::Result<()> {
+        self.pty.draw(|f| calicomp::ui::entry(f, &mut self.app))?;
+        Ok(())
+    }
+
+    pub async fn drive(&mut self) -> anyhow::Result<()> {
+        self.pty.clear()?;
+        self.draw_state().await?;
+        loop {
+            if let Some(event) = self.next_event().await? {
+                if self.step(event).await? {
+                    break;
+                }
+            } 
+        }
+
+        Ok(())
+    }
+
+    pub async fn next_event(&mut self) -> anyhow::Result<Option<Event>> {
+        let msg = self.stdin.next().await.ok_or_else(||anyhow!("stdin closed"))?;
+
+        let bytes = match msg {
+            Ok(Message::Text(msg)) => {
+                msg.into_bytes()
+            }
+
+            Ok(Message::Binary(msg)) => {
+                msg
+            }
+
+            Ok(_) => {
+                return Err(anyhow!("Can't handle this"));
+            }
+
+            Err(err) => {
+                return Err(err.into())
+            }
+        };
+
+        if let Some(size) = bytes.strip_prefix(&[0x04]) {
+            let cols = size.first().copied().unwrap_or(0) as u16;
+            let rows = size.last().copied().unwrap_or(0) as u16;
+
+            self.pty.resize(Rect { x: 0, y: 0, width: cols, height: rows })?;
+            self.draw_state().await?;
+            Ok(None)
+        } else {
+            Ok(parse_event(&bytes, false)?)
+        }
+
 
     }
-    pub async fn next(&mut self) -> Result<InputEvent> {
-        self.channel.recv().await.ok_or_else(|| {
-            anyhow!("Stream closed")
-        })
+
+    pub async fn step(&mut self, event: Event) -> anyhow::Result<bool> {
+        update(&mut self.app, event).await.unwrap();
+        self.pty.draw(|frame| calicomp::ui::entry(frame, &mut self.app))?;
+        if self.app.should_quit {
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
+}
+
+
+pub struct EventHandler {
+    channel: Receiver<Event>,
 }
 
 

@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::collections::HashMap;
 
 use async_trait::async_trait;
+use crossterm::event::Event;
 use ed25519_dalek::{pkcs8::{spki::der::pem::LineEnding::LF, DecodePrivateKey, EncodePrivateKey}, SigningKey};
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::Rect;
@@ -27,7 +28,31 @@ struct TerminalHandle {
     channel_id: ChannelId,
 }
 
-use calicomp::{app::App, ui};
+struct Instance {
+    terminal: SshTerminal,
+    app: App,
+}
+
+impl Instance {
+    pub async fn step(&mut self, event: Event) -> anyhow::Result<bool> {
+        update(&mut self.app, event).await.unwrap();
+        self.terminal.draw(|frame| ui::entry(frame, &mut self.app))?;
+        if self.app.should_quit {
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    pub async fn draw_state(&mut self) -> anyhow::Result<()> {
+        self.terminal.draw(|frame| ui::entry(frame, &mut self.app))?;
+        Ok(())
+    }
+}
+
+use calicomp::{app::{events::{self, update}, App}, tui::EventHandler, ui};
+
+use crate::parser;
 
 // The crossterm backend writes to the terminal handle.
 impl std::io::Write for TerminalHandle {
@@ -54,7 +79,7 @@ impl std::io::Write for TerminalHandle {
 
 #[derive(Clone)]
 pub struct AppServer {
-    clients: Arc<Mutex<HashMap<usize, (SshTerminal, App)>>>,
+    clients: Arc<Mutex<HashMap<usize, Instance>>>,
     id: usize,
 }
 
@@ -67,21 +92,9 @@ impl AppServer {
     }
 
     pub async fn run(&mut self) -> Result<(), anyhow::Error> {
-        let clients = self.clients.clone();
-        tokio::spawn(async move {
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_millis(2)).await;
-                for (_, (terminal, app)) in clients.lock().await.iter_mut() {
-                    // We can't reuse events here, as it would be blocking.
-                    terminal.draw(|f| ui::entry(f, app)).unwrap();
-
-                }
-            }
-        });
-
-        let key = if let Ok(key) = tokio::fs::read_to_string("./keypair").await {
+        let key = if let Ok(keyfile) = tokio::fs::read_to_string("./keypair").await {
             tracing::info!("Loaded private key");
-            let key = SigningKey::from_pkcs8_pem(&key)?; 
+            let key = SigningKey::from_pkcs8_pem(&keyfile)?; 
             KeyPair::Ed25519(key)
         } else {
             tracing::info!("No keypair found at './keypair', generating new");
@@ -140,11 +153,16 @@ impl Handler for AppServer {
             };
 
             let backend = CrosstermBackend::new(terminal_handle.clone());
-            let terminal = Terminal::new(backend)?;
+            let mut terminal = Terminal::new(backend)?;
             let app = App::new();
 
             tracing::info!("Got new terminal");
-            clients.insert(self.id, (terminal, app));
+
+            terminal.clear()?;
+
+            let mut instance = Instance { terminal, app };
+            instance.draw_state().await?;
+            clients.insert(self.id, instance);
         }
 
         Ok(true)
@@ -156,26 +174,19 @@ impl Handler for AppServer {
 
     async fn data(
         &mut self,
-        channel: ChannelId,
+        _channel: ChannelId,
         data: &[u8],
-        session: &mut Session,
+        _session: &mut Session,
     ) -> Result<(), Self::Error> {
-        
-        match data {
-            // Pressing 'q' closes the connection.
-            b"q" => {
-                self.clients.lock().await.remove(&self.id);
-                session.close(channel);
+        let mut lock = self.clients.lock().await;
+        let event = parser::parse_event(data, false)?;
+        if let Some(event) = event {
+            let instance = lock.get_mut(&self.id).unwrap();
+            let should_quit = instance.step(event).await?;
+            if should_quit {
+                lock.remove(&self.id);
             }
-            // Pressing 'c' resets the counter for the app.
-            // Only the client with the id sees the counter reset.
-            b"c" => {
-                let mut clients = self.clients.lock().await;
-                let (_, _app) = clients.get_mut(&self.id).unwrap();
-            }
-            _ => {}
         }
-
         Ok(())
     }
 
@@ -189,16 +200,21 @@ impl Handler for AppServer {
         _: u32,
         _: &mut Session,
     ) -> Result<(), Self::Error> {
+        tracing::debug!("resized to {col_width} x {row_height}");
         {
             let mut clients = self.clients.lock().await;
-            let (terminal, _) = clients.get_mut(&self.id).unwrap();
+            let instance = clients.get_mut(&self.id).unwrap();
+
+            let width = col_width.min(255);
+            let height = row_height.min(255);
             let rect = Rect {
                 x: 0,
                 y: 0,
-                width: col_width as u16,
-                height: row_height as u16,
+                width: width as u16,
+                height: height as u16,
             };
-            terminal.resize(rect)?;
+            instance.terminal.resize(rect)?;
+            instance.draw_state().await?;
         }
 
         Ok(())

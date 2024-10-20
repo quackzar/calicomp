@@ -1,9 +1,9 @@
+#![allow(clippy::needless_return)]
 use std::net::SocketAddr;
 
 use crate::ssh::AppServer;
 
 pub mod parser;
-pub mod events;
 pub mod http;
 pub mod ssh;
 

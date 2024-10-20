@@ -27,10 +27,13 @@ window.addEventListener('resize', () => {
 
 
 socket.onopen = () => {
-    socket.send(JSON.stringify({
-        cols: term.cols,
-        rows: term.rows,
-    }));
+    const packet = new Uint8Array(3);
+
+    packet[0] = 0x04;
+    packet[1] = Math.min(term.cols, 255);
+    packet[2] = Math.min(term.rows, 255);
+
+    socket.send(packet);
 
     term.loadAddon(
         new AttachAddon(socket, {
