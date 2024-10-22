@@ -1,6 +1,5 @@
 pub mod card;
 pub mod glassware;
-pub mod image;
 
 use ratatui::{
     prelude::*,

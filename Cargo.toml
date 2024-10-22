@@ -7,27 +7,27 @@ edition = "2021"
 
 [dependencies]
 better-panic = "0.3.0"
-bon = "2.1.0"
+bon = "2.3.0"
 chrono = "0.4.38"
-clap = "4.5.17"
+clap = "4.5.20"
 color-eyre = "0.6.3"
 crossterm = { version = "0.28.1", features = ["event-stream", "serde"] }
 directories = "5.0.1"
 eyre = "0.6.12"
 futures = "0.3.31"
-human-panic = "2.0.1"
-image = "0.25.2"
+human-panic = "2.0.2"
+image = "0.25.4"
 itertools = "0.13.0"
-measurements = {version = "0.11.0", features = ["serde"] }
-ratatui = "0.28.1"
-ratatui-image = "1.0.5"
-serde = { version = "1.0.209", features = ["derive", "std", "alloc"] }
-serde_json = "1.0.127"
-tempfile = "3.12.0"
+measurements = { version = "0.11.0", features = ["serde"] }
+ratatui = "0.29.0"
+ratatui-image = "2.0.1"
+serde = { version = "1.0.213", features = ["derive", "std", "alloc"] }
+serde_json = "1.0.132"
+tempfile = "3.13.0"
 textwrap = "0.16.1"
-tokio = { version = "1.40.0", features = ["full"] }
+tokio = { version = "1.41.0", features = ["full"] }
 toml = "0.8.19"
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
-tui-big-text = "0.6.0"
-tui-textarea = "0.6.1"
+tui-big-text = "0.6.1"
+tui-textarea = "0.7.0"

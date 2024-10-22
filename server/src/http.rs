@@ -182,6 +182,7 @@ impl Instance {
         if let Some(size) = bytes.strip_prefix(&[0x04]) {
             let cols = size.first().copied().unwrap_or(0) as u16;
             let rows = size.last().copied().unwrap_or(0) as u16;
+            tracing::debug!("resized to {rows} x {cols}");
 
             self.pty.resize(Rect { x: 0, y: 0, width: cols, height: rows })?;
             self.draw_state().await?;

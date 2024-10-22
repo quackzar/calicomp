@@ -21,7 +21,8 @@ term.open(document.getElementById("terminal")!);
 fitAddon.fit();
 
 window.addEventListener('resize', () => {
-  console.log('resize');
+  const dims = fitAddon.proposeDimensions()
+  console.log(`resize ${dims.rows} x ${dims.cols}`);
   fitAddon.fit();
 });
 

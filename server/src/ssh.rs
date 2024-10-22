@@ -200,7 +200,7 @@ impl Handler for AppServer {
         _: u32,
         _: &mut Session,
     ) -> Result<(), Self::Error> {
-        tracing::debug!("resized to {col_width} x {row_height}");
+        tracing::debug!("resized to {row_height} x {col_width}");
         {
             let mut clients = self.clients.lock().await;
             let instance = clients.get_mut(&self.id).unwrap();
