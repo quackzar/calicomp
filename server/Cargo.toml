@@ -10,7 +10,7 @@ axum = { version = "0.7.7", features = ["macros", "ws"] }
 calicomp = {path = ".."}
 futures = "0.3.31"
 ratatui = "0.29.0"
-russh = "0.45.0"
+russh = "0.54.1"
 russh-keys = "0.45.0"
 tokio = { version = "1.41.0", features = ["full"] }
 tracing = "0.1.40"
